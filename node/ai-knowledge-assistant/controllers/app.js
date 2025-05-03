@@ -27,6 +27,8 @@ const {FirestoreService} = require('../services/firestore-service');
 const {UserAuthChatService} = require('../services/user-auth-chat-service');
 const {UserAuthEventsService} = require('../services/user-auth-events-service');
 const {generateAuthUrl} = require('../services/user-auth.js');
+const {AIPService} = require('../services/aip-service');
+const {Message} = require('../model/message');
 
 /**
  * Google Chat
@@ -67,8 +69,9 @@ class ChatApp {
   async execute() {
     switch (this.event.type) {
       case EventType.ADDED_TO_SPACE:
+        return this.handleAddedToSpace();
       case EventType.MESSAGE:
-        return this.handleAddedToSpaceOrMention();
+        return this.handleMessage();
       case EventType.REMOVED_FROM_SPACE:
         return this.handleRemovedFromSpace();
       case EventType.CARD_CLICKED:
@@ -79,13 +82,13 @@ class ChatApp {
   }
 
   /**
-   * Handles the ADDED_TO_SPACE or MESSAGE event by sending back a welcome message.
+   * Handles the ADDED_TO_SPACE event by sending back a welcome message.
    * It also adds the space to storage, queries all messages currently in the space,
    * and saves all the messages into storage.
    * @return {Promise<import('@googleapis/chat').chat_v1.Schema$Message>} A
    *     welcome text message to post back to the space.
    */
-  async handleAddedToSpaceOrMention() {
+  async handleAddedToSpace() {
     if (env.logging) {
       console.log(JSON.stringify({
         message: 'Saving message history and subscribing to the space.',
@@ -124,6 +127,85 @@ class ChatApp {
       + ' questions based on past conversation in this space. Go ahead and ask'
       + ' me a question!';
     return {text: text};
+  }
+
+  /**
+   * Handles the MESSAGE event by processing the user's message.
+   * It saves the message to storage and uses AI to determine if it's a question
+   * that should be answered.
+   * @return {Promise<import('@googleapis/chat').chat_v1.Schema$Message>} A
+   *     response message or empty object if no response is needed.
+   */
+  async handleMessage() {
+    if (env.logging) {
+      console.log(JSON.stringify({
+        message: 'Processing message event.',
+        text: this.event.message.text,
+      }));
+    }
+
+    try {
+      // Save the message to storage
+      await FirestoreService.createOrUpdateMessage(
+        this.spaceName,
+        new Message(
+          this.event.message.name, 
+          this.event.message.text, 
+          this.event.message.createTime)
+      );
+
+      // Check if the message contains a question
+      const hasQuestion = await AIPService.containsQuestion(this.event.message.text);
+      if (!hasQuestion) {
+        return {}; // Return empty object if not a question
+      }
+
+      // If it's a question, retrieve conversation history and generate answer
+      const allMessages = await FirestoreService.listMessages(this.spaceName);
+      const responseText = await AIPService.answerQuestion(this.event.message.text, allMessages);
+
+      // Create response message with help button
+      // Note: By omitting thread information, we ensure the message is posted directly to the space
+      return {
+        text: responseText,
+        thread: null, // This explicitly removes any thread information
+        accessoryWidgets: [
+          {
+            buttonList: {
+              buttons: [
+                {
+                  icon: {
+                    material_icon: {
+                      name: 'contact_support'
+                    }
+                  },
+                  text: 'Get help',
+                  altText: 'Get additional help from a space manager',
+                  onClick: {
+                    action: {
+                      function: 'doContactSupport'
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      };
+    } catch (e) {
+      if (e.name === 'InvalidTokenException') {
+        // App doesn't have a refresh token for the user.
+        // Request configuration to obtain OAuth2 tokens.
+        return {
+          actionResponse: {
+            type: 'REQUEST_CONFIG',
+            url: generateAuthUrl(this.userName, this.configCompleteRedirectUrl)
+          }
+        };
+      }
+      // Rethrow unrecognized errors.
+      throw e;
+    }
   }
 
   /**
