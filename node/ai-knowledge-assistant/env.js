@@ -19,7 +19,7 @@
  */
 const env = {
   // Replace with your GCP project ID.
-  project: 'us-central1',
+  project: 'delaphoneassistant',
 
   // Replace with your GCP project location. Used for Vertex AI calls.
   location: 'us-central1',
