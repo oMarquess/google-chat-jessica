@@ -20,7 +20,7 @@
   "dependencies": {
     "@google-cloud/firestore": "^7.6.0",
     "@google-cloud/functions-framework": "^3.3.0",
-    "@google-cloud/vertexai": "^0.5.0",
+    "groq-sdk": "^0.3.0",
     "@googleapis/chat": "^22.0.0",
     "@googleapis/workspaceevents": "^1.0.0",
     "google-auth-library": "^9.7.0"

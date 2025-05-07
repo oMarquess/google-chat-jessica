@@ -15,15 +15,17 @@
  */
 
 /**
- * @fileoverview Service that calls the Vertex AI API for generative AI text
+ * @fileoverview Service that calls the Groq API for generative AI text
  * prediction.
  */
 
-/**
- * [Vertex AI Platform](https://cloud.google.com/vertex-ai/docs) client library.
- */
-const {VertexAI} = require('@google-cloud/vertexai');
+const Groq = require('groq-sdk');
 const {env} = require('../env.js');
+
+// Initialize Groq client with API key
+const groq = new Groq({
+  apiKey: env.groqApiKey
+});
 
 /**
  * Service that executes AI text prediction.
@@ -60,6 +62,7 @@ When responding:
 - Use a friendly, conversational tone with occasional emojis (1-2 per response) that match the context
 - Structure your responses with proper spacing and paragraphs for readability
 - Start responses with a brief greeting or acknowledgment
+- Space out your responses with a new line between each paragraph
 - End with a positive closing remark when appropriate
 - Use bullet points for lists or multiple items
 - If sharing technical information, make it clear and easy to understand
@@ -79,33 +82,28 @@ Remember to maintain your friendly personality in all responses. However, if the
    * @return {Promise<string>} The predicted text.
    */
   callPredict: async function (prompt) {
-    // Initialize Vertex with the Cloud project and location
-    const vertexAI = new VertexAI({
-      project: env.project,
-      location: env.location,
-    });
-
-    // Instantiate the model
-    const generativeModel = vertexAI.getGenerativeModel({
-      model: 'gemini-1.5-pro-002',
+    const completion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      model: "llama-3.3-70b-versatile",
       temperature: 0.5,
+      max_tokens: 1024,
     });
 
-    const request = {
-      contents: [{role: 'user', parts: [{text: prompt, }]}],
-    };
-    const result = await generativeModel.generateContent(request);
-    const response = result.response.candidates[0].content.parts[0].text;
+    const response = completion.choices[0].message.content;
 
     if (env.logging) {
       console.log(JSON.stringify({
         message: 'callPredict',
-        request,
+        prompt,
         response,
       }));
     }
 
     return response;
   },
-
-}
+};
