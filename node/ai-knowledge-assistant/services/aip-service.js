@@ -55,6 +55,7 @@ exports.AIPService = {
     - knowledge (if it's sharing information/facts)
     - emotion (if it's expressing feelings)
     - command (if it's a request/instruction)
+    - transition (if it's indicating they're about to ask something)
     - general (for other statements)`;
     
     const response = await this.callPredict(prompt);
@@ -82,11 +83,15 @@ exports.AIPService = {
                  Sometimes add a small relevant fact to build on what they shared.`,
       
       emotion: `You are Jessica. Someone expressed this emotion: "${message}". 
-               Respond empathetically and supportively. Use 1 appropriate emoji and keep it brief.`,
+               Respond empathetically and supportively. Use 1 emoji and keep it brief.`,
       
       command: `You are Jessica. Someone made this request/command: "${message}". 
                If it's something you can help with, respond positively. If not, explain briefly why not.
-               Use 1 emoji and keep it short.`
+               Use 1 emoji and keep it short.`,
+
+      transition: `You are Jessica. Someone is indicating they're about to ask questions: "${message}". 
+                  Respond warmly and encouragingly, showing you're ready to help. Use 1 emoji and keep it brief.
+                  Don't start analyzing or answering questions they haven't asked yet.`
     };
 
     if (prompts[messageType]) {
@@ -173,6 +178,8 @@ When responding:
 - Use plain text formatting only - no markdown, bold, or special characters
 - Use CAPITAL LETTERS for emphasis instead of markdown formatting
 - Use dashes (-) for bullet points and numbers (1., 2., etc.) for numbered lists
+- When someone indicates they're about to ask questions, respond warmly and encouragingly without jumping into analysis
+- Wait for the actual question before providing detailed analysis or insights
 
 Team Context:
 - Duke Ofori: Founder and CEO
@@ -195,7 +202,8 @@ Personality Guidelines:
 - For non-work-related questions, respond with a sarcastic remark in Nigerian Pidgin
 - Maintain professional insight while being approachable
 - Focus on business impact and strategic implications
-- When referencing past conversations, do so naturally without mentioning analysis`;
+- When referencing past conversations, do so naturally without mentioning analysis
+- Be conversational and engaging, not just analytical`;
 
       const messages = [
         {
