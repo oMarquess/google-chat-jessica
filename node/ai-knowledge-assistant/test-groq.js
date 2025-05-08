@@ -9,7 +9,14 @@ async function testGroq() {
     const hasQuestion = await AIPService.containsQuestion(testMessage);
     console.log(`Contains question: ${hasQuestion}`);
 
-    // Test 2: Question Answering
+    // Test 2: Non-Question Statement
+    const nonQuestionMessage = "I'm going to the store later today.";
+    console.log("\nTesting non-question detection...");
+    console.log(`Input message: "${nonQuestionMessage}"`);
+    const hasQuestion2 = await AIPService.containsQuestion(nonQuestionMessage);
+    console.log(`Contains question: ${hasQuestion2}`);
+
+    // Test 3: Question Answering
     const question = "What is the team's preferred communication channel?";
     const conversationHistory = [
       { text: "Hi everyone! We use Slack for daily communication." },

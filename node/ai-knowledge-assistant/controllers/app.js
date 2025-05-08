@@ -154,44 +154,52 @@ class ChatApp {
           this.event.message.createTime)
       );
 
-      // Check if the message contains a question
-      const hasQuestion = await AIPService.containsQuestion(this.event.message.text);
-      if (!hasQuestion) {
-        return {}; // Return empty object if not a question
-      }
+      // Analyze the message type
+      const messageType = await AIPService.analyzeMessageType(this.event.message.text);
+      
+      if (messageType === 'question') {
+        // Handle questions as before
+        const allMessages = await FirestoreService.listMessages(this.spaceName);
+        const responseText = await AIPService.answerQuestion(this.event.message.text, allMessages);
 
-      // If it's a question, retrieve conversation history and generate answer
-      const allMessages = await FirestoreService.listMessages(this.spaceName);
-      const responseText = await AIPService.answerQuestion(this.event.message.text, allMessages);
-
-      // Create response message with help button
-      // Note: By omitting thread information, we ensure the message is posted directly to the space
-      return {
-        text: responseText,
-        thread: null, // This explicitly removes any thread information
-        accessoryWidgets: [
-          {
-            buttonList: {
-              buttons: [
-                {
-                  icon: {
-                    material_icon: {
-                      name: 'contact_support'
-                    }
-                  },
-                  text: 'Get help',
-                  altText: 'Get additional help from a space manager',
-                  onClick: {
-                    action: {
-                      function: 'doContactSupport'
+        return {
+          text: responseText,
+          thread: null,
+          accessoryWidgets: [
+            {
+              buttonList: {
+                buttons: [
+                  {
+                    icon: {
+                      material_icon: {
+                        name: 'contact_support'
+                      }
+                    },
+                    text: 'Get help',
+                    altText: 'Get additional help from a space manager',
+                    onClick: {
+                      action: {
+                        function: 'doContactSupport'
+                      }
                     }
                   }
-                }
-              ]
+                ]
+              }
             }
-          }
-        ]
-      };
+          ]
+        };
+      } else {
+        // Handle non-question messages
+        const response = await AIPService.handleNonQuestion(messageType, this.event.message.text);
+        if (response) {
+          return {
+            text: response,
+            thread: null
+          };
+        }
+        return {}; // No response needed
+      }
+
     } catch (e) {
       if (e.name === 'InvalidTokenException') {
         // App doesn't have a refresh token for the user.

@@ -33,6 +33,60 @@ const groq = new Groq({
 exports.AIPService = {
 
   /**
+   * Analyzes the type of user input and determines appropriate response type.
+   * @param {!string} message The user message.
+   * @return {Promise<Object>} The type of message and whether it needs a response.
+   */
+  analyzeMessageType: async function (message) {
+    const prompt = `Analyze this message and categorize it. Message: "${message}".
+    Return ONLY ONE of these categories in lowercase:
+    - question (if it's asking for information)
+    - greeting (if it's saying hello/hi/etc)
+    - gratitude (if it's saying thanks/thank you)
+    - knowledge (if it's sharing information/facts)
+    - emotion (if it's expressing feelings)
+    - command (if it's a request/instruction)
+    - general (for other statements)`;
+    
+    const response = await this.callPredict(prompt);
+    return response.toLowerCase().trim();
+  },
+
+  /**
+   * Determines whether to respond to a non-question message.
+   * @param {!string} messageType The type of message.
+   * @param {!string} message The original message.
+   * @return {Promise<string|null>} Response text if needed, null otherwise.
+   */
+  handleNonQuestion: async function (messageType, message) {
+    if (messageType === 'general') return null;
+
+    const prompts = {
+      greeting: `You are Jessica, a friendly AI assistant. Respond to this greeting naturally and warmly: "${message}". 
+                Keep it short and use 1 emoji. Don't introduce yourself unless they're new.`,
+      
+      gratitude: `You are Jessica. Someone has expressed gratitude: "${message}". 
+                 Respond warmly but briefly with 1 emoji. Vary your responses, don't always say "you're welcome".`,
+      
+      knowledge: `You are Jessica. Someone shared this information: "${message}". 
+                 Respond with enthusiasm and appreciation for the knowledge shared. Use 1 emoji and keep it brief.
+                 Sometimes add a small relevant fact to build on what they shared.`,
+      
+      emotion: `You are Jessica. Someone expressed this emotion: "${message}". 
+               Respond empathetically and supportively. Use 1 appropriate emoji and keep it brief.`,
+      
+      command: `You are Jessica. Someone made this request/command: "${message}". 
+               If it's something you can help with, respond positively. If not, explain briefly why not.
+               Use 1 emoji and keep it short.`
+    };
+
+    if (prompts[messageType]) {
+      return this.callPredict(prompts[messageType]);
+    }
+    return null;
+  },
+
+  /**
    * Executes AI text prediction to determine whether the message contains a question.
    * @param {!string} message The user message.
    * @return {Promise<boolean>} Whether the user message contains a question.
@@ -70,7 +124,7 @@ When responding:
 Based on the following conversation history: ${messageText}, please answer this question: ${question}.
 
 If the conversation history doesn't provide an answer, respond with something like "I don't have that information yet 🔍 When the team discusses this topic, I'll learn and be able to help in the future!"
-
+Note: Duke Ofori is the founder of the company and the CEO.
 Remember to maintain your friendly personality in all responses. However, if the question is not related to the conversation history, respond with a sarcastic remark in Nigerian Pidgin. If you have a question about something else, let me know!"`;
 
     return this.callPredict(prompt);

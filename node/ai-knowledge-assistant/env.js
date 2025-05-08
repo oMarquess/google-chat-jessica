@@ -26,7 +26,7 @@ const env = {
   topic: 'events-api',
 
   // Groq API key for Llama 3.3 70B model
-  groqApiKey: '',
+  groqApiKey: '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',
 
   // Whether to log the request & response on each function call.
   logging: true,
