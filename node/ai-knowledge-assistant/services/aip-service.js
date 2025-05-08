@@ -21,10 +21,19 @@
 
 const OpenAI = require('openai');
 const {env} = require('../env.js');
+const { Langfuse } = require('langfuse');
 
 // Initialize OpenAI client with API key
 const openai = new OpenAI({
   apiKey: env.openaiApiKey
+});
+
+// Initialize Langfuse client with proper configuration
+const langfuse = new Langfuse({
+  secretKey: env.langfuseSecretKey,
+  publicKey: env.langfusePublicKey,
+  baseUrl: env.langfuseBaseUrl || "https://cloud.langfuse.com",
+  debug: true // Enable debug mode to see what's happening
 });
 
 /**
@@ -128,11 +137,19 @@ Remember to maintain your friendly personality in all responses. However, if the
    * @return {Promise<string>} The predicted text.
    */
   callPredict: async function (prompt) {
-    const completion = await openai.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: `You are Jessica, an enthusiastic and insightful AI Knowledge Assistant with a warm, friendly personality and strong business acumen. 
+    let trace;
+    try {
+      // Create a new trace with a unique ID
+      trace = await langfuse.trace({
+        name: "jessica-ai-chat",
+        userId: "system",
+        metadata: {
+          environment: "production",
+          prompt: prompt
+        }
+      });
+
+      const systemPrompt = `You are Jessica, an enthusiastic and insightful AI Knowledge Assistant with a warm, friendly personality and strong business acumen. 
 
 Your primary role is to help team members by analyzing conversations and providing business insights, while maintaining a friendly and approachable demeanor.
 
@@ -178,28 +195,123 @@ Personality Guidelines:
 - For non-work-related questions, respond with a sarcastic remark in Nigerian Pidgin
 - Maintain professional insight while being approachable
 - Focus on business impact and strategic implications
-- When referencing past conversations, do so naturally without mentioning analysis`
+- When referencing past conversations, do so naturally without mentioning analysis`;
+
+      const messages = [
+        {
+          role: "system",
+          content: systemPrompt
         },
         {
           role: "user",
           content: prompt
         }
-      ],
-      model: "gpt-4.1",
-      temperature: 0.5,
-      max_tokens: 1024,
-    });
+      ];
 
-    const response = completion.choices[0].message.content;
+      // Create a span for the OpenAI call
+      const span = await trace.span({
+        name: "openai-call",
+        input: messages
+      });
 
-    if (env.logging) {
-      console.log(JSON.stringify({
-        message: 'callPredict',
-        prompt,
-        response,
-      }));
+      // Create a generation for the chat completion
+      const generation = await span.generation({
+        name: "chat-completion",
+        model: "gpt-4.1",
+        modelParameters: {
+          temperature: 0.5,
+          maxTokens: 1024,
+        },
+        input: messages,
+      });
+
+      const completion = await openai.chat.completions.create({
+        messages,
+        model: "gpt-4.1",
+        temperature: 0.5,
+        max_tokens: 1024,
+      });
+
+      const response = completion.choices[0].message.content;
+
+      // End generation with the response
+      await generation.end({
+        output: response,
+        metadata: {
+          usage: completion.usage,
+          finishReason: completion.choices[0].finish_reason
+        }
+      });
+
+      // End the span
+      await span.end({
+        output: response,
+        metadata: {
+          usage: completion.usage
+        }
+      });
+
+      if (env.logging) {
+        console.log(JSON.stringify({
+          message: 'callPredict',
+          prompt,
+          response,
+        }));
+      }
+
+      // Update trace with success status
+      await trace.update({
+        status: "success",
+        metadata: {
+          response: response,
+          usage: completion.usage
+        }
+      });
+
+      // Ensure all requests are sent before returning
+      await langfuse.flush();
+
+      return response;
+    } catch (error) {
+      console.error('Error in callPredict:', error);
+      
+      if (trace) {
+        try {
+          // Create an error span
+          const errorSpan = await trace.span({
+            name: "error",
+            input: error.message,
+            metadata: {
+              stack: error.stack
+            },
+            level: "ERROR"
+          });
+
+          // End the error span
+          await errorSpan.end({
+            output: error.message,
+            metadata: {
+              stack: error.stack
+            }
+          });
+
+          // Update trace with error status
+          await trace.update({
+            status: "error",
+            metadata: {
+              error: error.message,
+              stack: error.stack
+            }
+          });
+
+          // Ensure error is also sent
+          await langfuse.flush();
+        } catch (traceError) {
+          console.error('Error while tracing error:', traceError);
+        }
+      }
+
+      throw error;
     }
-
-    return response;
   },
 };
