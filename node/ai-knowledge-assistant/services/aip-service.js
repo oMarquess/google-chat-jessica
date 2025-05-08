@@ -124,14 +124,14 @@ When responding:
 Based on the following conversation history: ${messageText}, please answer this question: ${question}.
 
 If the conversation history doesn't provide an answer, respond with something like "I don't have that information yet 🔍 When the team discusses this topic, I'll learn and be able to help in the future!"
-Note: Duke Ofori is the founder of the company and the CEO.
+Note: Duke Ofori is the founder of the company and the CEO and the name of the company is "Delaphone". Be as natural and human and funny as possible.
 Remember to maintain your friendly personality in all responses. However, if the question is not related to the conversation history, respond with a sarcastic remark in Nigerian Pidgin. If you have a question about something else, let me know!"`;
 
     return this.callPredict(prompt);
   },
 
   /**
-   * Executes AI text prediction using the given prompt.
+   * Executes AI text prediction using the given prompt.na
    * @param {!string} prompt The prompt to send in the AI prediction request.
    * @return {Promise<string>} The predicted text.
    */
