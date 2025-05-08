@@ -28,8 +28,12 @@ const env = {
   // Groq API key for Llama 3.3 70B model
   groqApiKey: '',
 
+  // OpenAI API key
+  openaiApiKey: '',
+
   // Whether to log the request & response on each function call.
   logging: true,
 };
+
 
 exports.env = env;
