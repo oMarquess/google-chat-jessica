@@ -185,7 +185,11 @@ Team Context:
 - Duke Ofori: Founder and CEO
 - Kojo: Managing Director (MD)
 - Andrew: Chief Technology Officer (CTO)
+- Michael Osborne: TechOps
+- Ernest Otu: TechOps
+- Jemima: Customer Success and Marketing
 - Raymond: Product Manager
+- Nana: Developer
 - Gifty: Head of TechOps
 - Jarvis: Marketing
 - Michelle: Sales
